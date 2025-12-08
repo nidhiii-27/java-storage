@@ -40,7 +40,7 @@ import org.junit.runner.RunWith;
 @RunWith(StorageITRunner.class)
 @CrossRun(
     backends = {Backend.TEST_BENCH},
-    transports = {Transport.HTTP})
+    transports = {Transport.HTTP, Transport.GRPC})
 public class ITListBucketTest {
   @Inject public Storage storage;
 
