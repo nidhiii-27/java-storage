@@ -24,6 +24,7 @@ import com.google.cloud.storage.Storage.BlobSourceOption;
 import com.google.cloud.storage.StorageException;
 import com.google.common.io.ByteStreams;
 import java.nio.channels.FileChannel;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.concurrent.Callable;
@@ -55,31 +56,40 @@ final class DirectDownloadCallable implements Callable<DownloadResult> {
   public DownloadResult call() {
     long bytesCopied = -1L;
     try (ReadChannel rc =
-            storage.reader(
-                BlobId.of(parallelDownloadConfig.getBucketName(), originalBlob.getName()), opts);
-        FileChannel wc =
-            FileChannel.open(
-                destPath,
+        storage.reader(
+            BlobId.of(parallelDownloadConfig.getBucketName(), originalBlob.getName()), opts)) {
+      StandardOpenOption[] options =
+          parallelDownloadConfig.isSkipIfExists()
+              ? new StandardOpenOption[] {StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW}
+              : new StandardOpenOption[] {
                 StandardOpenOption.WRITE,
                 StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING)) {
-      rc.setChunkSize(0);
-      bytesCopied = ByteStreams.copy(rc, wc);
-      if (originalBlob.getSize() != null) {
-        if (bytesCopied != originalBlob.getSize()) {
-          return DownloadResult.newBuilder(originalBlob, TransferStatus.FAILED_TO_FINISH)
-              .setException(
-                  new StorageException(
-                      0,
-                      "Unexpected end of stream, read "
-                          + bytesCopied
-                          + " expected "
-                          + originalBlob.getSize()
-                          + " from object "
-                          + originalBlob.getBlobId().toGsUtilUriWithGeneration()))
-              .build();
+                StandardOpenOption.TRUNCATE_EXISTING
+              };
+      try (FileChannel wc = FileChannel.open(destPath, options)) {
+        rc.setChunkSize(0);
+        bytesCopied = ByteStreams.copy(rc, wc);
+        if (originalBlob.getSize() != null) {
+          if (bytesCopied != originalBlob.getSize()) {
+            return DownloadResult.newBuilder(originalBlob, TransferStatus.FAILED_TO_FINISH)
+                .setException(
+                    new StorageException(
+                        0,
+                        "Unexpected end of stream, read "
+                            + bytesCopied
+                            + " expected "
+                            + originalBlob.getSize()
+                            + " from object "
+                            + originalBlob.getBlobId().toGsUtilUriWithGeneration()))
+                .build();
+          }
         }
       }
+    } catch (FileAlreadyExistsException e) {
+      return DownloadResult.newBuilder(originalBlob, TransferStatus.SKIPPED)
+          .setOutputDestination(destPath)
+          .setException(e)
+          .build();
     } catch (Exception e) {
       if (bytesCopied == -1) {
         return DownloadResult.newBuilder(originalBlob, TransferStatus.FAILED_TO_START)
