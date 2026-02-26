@@ -38,16 +38,19 @@ public final class ParallelDownloadConfig {
   @NonNull private final Path downloadDirectory;
   @NonNull private final String bucketName;
   @NonNull private final List<BlobSourceOption> optionsPerRequest;
+  private final boolean skipIfExists;
 
   private ParallelDownloadConfig(
       @NonNull String stripPrefix,
       @NonNull Path downloadDirectory,
       @NonNull String bucketName,
-      @NonNull List<BlobSourceOption> optionsPerRequest) {
+      @NonNull List<BlobSourceOption> optionsPerRequest,
+      boolean skipIfExists) {
     this.stripPrefix = stripPrefix;
     this.downloadDirectory = downloadDirectory;
     this.bucketName = bucketName;
     this.optionsPerRequest = optionsPerRequest;
+    this.skipIfExists = skipIfExists;
   }
 
   /**
@@ -87,6 +90,15 @@ public final class ParallelDownloadConfig {
     return optionsPerRequest;
   }
 
+  /**
+   * Whether to skip downloading the file if it already exists in the destination.
+   *
+   * @see Builder#setSkipIfExists(boolean)
+   */
+  public boolean isSkipIfExists() {
+    return skipIfExists;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -99,12 +111,13 @@ public final class ParallelDownloadConfig {
     return stripPrefix.equals(that.stripPrefix)
         && downloadDirectory.equals(that.downloadDirectory)
         && bucketName.equals(that.bucketName)
-        && optionsPerRequest.equals(that.optionsPerRequest);
+        && optionsPerRequest.equals(that.optionsPerRequest)
+        && skipIfExists == that.skipIfExists;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(stripPrefix, downloadDirectory, bucketName, optionsPerRequest);
+    return Objects.hash(stripPrefix, downloadDirectory, bucketName, optionsPerRequest, skipIfExists);
   }
 
   @Override
@@ -114,6 +127,7 @@ public final class ParallelDownloadConfig {
         .add("downloadDirectory", downloadDirectory)
         .add("bucketName", bucketName)
         .add("optionsPerRequest", optionsPerRequest)
+        .add("skipIfExists", skipIfExists)
         .toString();
   }
 
@@ -132,12 +146,14 @@ public final class ParallelDownloadConfig {
     @NonNull private Path downloadDirectory;
     @NonNull private String bucketName;
     @NonNull private List<BlobSourceOption> optionsPerRequest;
+    private boolean skipIfExists;
 
     private Builder() {
       this.stripPrefix = "";
       this.downloadDirectory = Paths.get("");
       this.bucketName = "";
       this.optionsPerRequest = ImmutableList.of();
+      this.skipIfExists = false;
     }
 
     /**
@@ -187,6 +203,18 @@ public final class ParallelDownloadConfig {
     }
 
     /**
+     * Sets the value for skipIfExists. If set to true, the TransferManager will skip downloading the
+     * file if it already exists in the destination.
+     *
+     * @return the builder instance with the value for skipIfExists modified.
+     * @see ParallelDownloadConfig#isSkipIfExists()
+     */
+    public Builder setSkipIfExists(boolean skipIfExists) {
+      this.skipIfExists = skipIfExists;
+      return this;
+    }
+
+    /**
      * Creates a ParallelDownloadConfig object.
      *
      * @return {@link ParallelDownloadConfig}
@@ -197,7 +225,7 @@ public final class ParallelDownloadConfig {
       checkNotNull(downloadDirectory);
       checkNotNull(optionsPerRequest);
       return new ParallelDownloadConfig(
-          stripPrefix, downloadDirectory, bucketName, optionsPerRequest);
+          stripPrefix, downloadDirectory, bucketName, optionsPerRequest, skipIfExists);
     }
   }
 }
