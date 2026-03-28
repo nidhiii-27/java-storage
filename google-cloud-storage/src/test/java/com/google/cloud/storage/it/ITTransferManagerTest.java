@@ -337,6 +337,43 @@ public class ITTransferManagerTest {
   }
 
   @Test
+  public void downloadBlobsSkipIfExists() throws Exception {
+    TransferManagerConfig config =
+        TransferManagerConfigTestingInstances.defaults(storage.getOptions());
+    try (TransferManager transferManager = config.getService()) {
+      String bucketName = bucket.getName();
+      ParallelDownloadConfig parallelDownloadConfig =
+          ParallelDownloadConfig.newBuilder()
+              .setBucketName(bucketName)
+              .setDownloadDirectory(baseDir)
+              .setSkipIfExists(true)
+              .build();
+
+      // First download - should succeed
+      DownloadJob job = transferManager.downloadBlobs(blobs, parallelDownloadConfig);
+      List<DownloadResult> downloadResults = job.getDownloadResults();
+      assertThat(downloadResults).hasSize(3);
+      assertThat(
+              downloadResults.stream()
+                  .filter(result -> result.getStatus() == TransferStatus.SUCCESS)
+                  .collect(Collectors.toList()))
+          .hasSize(3);
+
+      // Second download - should skip
+      DownloadJob job2 = transferManager.downloadBlobs(blobs, parallelDownloadConfig);
+      List<DownloadResult> downloadResults2 = job2.getDownloadResults();
+      assertThat(downloadResults2).hasSize(3);
+      assertThat(
+              downloadResults2.stream()
+                  .filter(result -> result.getStatus() == TransferStatus.SKIPPED)
+                  .collect(Collectors.toList()))
+          .hasSize(3);
+
+      cleanUpFiles(downloadResults);
+    }
+  }
+
+  @Test
   public void downloadBlobsAllowChunked() throws Exception {
     TransferManagerConfig config =
         TransferManagerConfigTestingInstances.defaults(storage.getOptions()).toBuilder()

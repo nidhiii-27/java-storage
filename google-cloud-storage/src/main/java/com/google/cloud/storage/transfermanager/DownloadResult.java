@@ -63,14 +63,15 @@ public final class DownloadResult {
 
   /**
    * The destination on the Filesystem the object has been written to. This field will only be
-   * populated if the Transfer was a {@link TransferStatus#SUCCESS SUCCESS}.
+   * populated if the Transfer was a {@link TransferStatus#SUCCESS SUCCESS} or {@link
+   * TransferStatus#SKIPPED SKIPPED}.
    *
    * @see Builder#setOutputDestination(Path)
    */
   public @NonNull Path getOutputDestination() {
     checkState(
-        status == TransferStatus.SUCCESS,
-        "getOutputDestination() is only valid when status is SUCCESS but status was %s",
+        status == TransferStatus.SUCCESS || status == TransferStatus.SKIPPED,
+        "getOutputDestination() is only valid when status is SUCCESS or SKIPPED but status was %s",
         status);
     return outputDestination;
   }
@@ -206,7 +207,7 @@ public final class DownloadResult {
     public DownloadResult build() {
       checkNotNull(input);
       checkNotNull(status);
-      if (status == TransferStatus.SUCCESS) {
+      if (status == TransferStatus.SUCCESS || status == TransferStatus.SKIPPED) {
         checkNotNull(outputDestination);
       } else if (status == TransferStatus.FAILED_TO_START
           || status == TransferStatus.FAILED_TO_FINISH) {
